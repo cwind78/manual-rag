@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: manual-rag
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ragdb
+    username: raguser
+    password: ragpass
+    driver-class-name: org.postgresql.Driver
+
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+
+      chat:
+        options:
+          model: qwen2.5:7b
+
+      embedding:
+        options:
+          model: nomic-embed-text
+
+    vectorstore:
+
+      pgvector:
+        initialize-schema: true
+        dimensions: 768
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+#    properties:
+#      hibernate:
+#        format_sql: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.springframework.http.converter.json: TRACE
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+  api-docs:
+    path: /v3/api-docs
