@@ -1,8 +1,8 @@
 package com.prj.manualrag.document.dto;
 
-public record DocumentUploadRequest(String productName,
+import java.util.Map;
 
-                                    String manufacturer,
-
-                                    String modelName) {
+public record DocumentUploadRequest(String title,
+                                    String category,
+                                    Map<String, Object> metadata) {
 }

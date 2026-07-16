@@ -6,7 +6,7 @@ import com.prj.manualrag.document.entity.DocumentEntity;
 import com.prj.manualrag.document.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+//import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +18,7 @@ public class DocumentUploadService {
     private final PdfExtractService pdfExtractService;
     private final DocumentRepository documentRepository;
     private final VectorStore vectorStore;
+    private final SemanticChunker semanticChunker;
 
     public DocumentUploadResponse upload(
             MultipartFile file, DocumentUploadRequest request
@@ -31,9 +32,9 @@ public class DocumentUploadService {
                                 .fileName(
                                         file.getOriginalFilename()
                                 )
-                                .productName(request.productName())
-                                .manufacturer(request.manufacturer())
-                                .modelName(request.modelName())
+                                .title(request.title())
+                                .category(request.category())
+                                .metadata(request.metadata())
                                 .build()
                 );
 
@@ -49,13 +50,15 @@ public class DocumentUploadService {
         /*
          * 3. Chunk 분할
          */
-        TokenTextSplitter splitter =
-                new TokenTextSplitter();
-
+//        TokenTextSplitter splitter =
+//                new TokenTextSplitter();
+//
+//        List<Document> chunks =
+//                splitter.apply(
+//                        documents
+//                );
         List<Document> chunks =
-                splitter.apply(
-                        documents
-                );
+                semanticChunker.chunk(documents);
 
         /*
          * 4. Embedding 생성 + Vector 저장

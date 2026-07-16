@@ -41,11 +41,22 @@ public class RagService {
                         SearchRequest
                                 .builder()
                                 .query(question)
-                                .topK(5)
+                                .topK(20)
+                                .similarityThreshold(0.0)
                                 .build()
                 );
 
+        log.info("검색 문서 개수={}", documents.size());
 
+        documents.forEach(d ->
+                log.info(
+                        "content={}",
+                        d.getText().substring(
+                                0,
+                                Math.min(100, d.getText().length())
+                        )
+                )
+        );
 
         /*
          * 2. 검색 결과 Context 생성
@@ -66,22 +77,24 @@ public class RagService {
          */
         String prompt =
                 """
-                당신은 제품 사용 설명서 안내 AI입니다.
+        당신은 한국어로 답변하는 제품 사용 설명서 안내 AI입니다.
 
-                반드시 아래 설명서 내용만 이용해서 답변하세요.
+        반드시 아래 설명서 내용만 근거로 답변하세요.
 
-                설명서 내용:
-                %s
+        답변 규칙:
+        1. 반드시 한국어로만 답변하세요.
+        2. 한자, 중국어, 일본어 문자를 사용하지 마세요.
+        3. 설명서에 없는 내용은 추측하지 마세요.
+        4. 모르는 내용이면 "설명서에서 확인할 수 없습니다."라고 답하세요.
+        5. 제품명, 모델명 등 고유명사를 제외하고 모든 설명은 한국어로 작성하세요.
+
+        설명서 내용:
+        %s
 
 
-                사용자 질문:
-                %s
-
-
-                모르는 내용이면
-                "설명서에서 확인할 수 없습니다."
-                라고 답하세요.
-                """
+        사용자 질문:
+        %s
+        """
                         .formatted(
                                 context,
                                 question
