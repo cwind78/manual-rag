@@ -169,6 +169,7 @@ npm install
 npm install -D tailwindcss @tailwindcss/vite
 npm install lucide-vue-next
 npm install axios
+npm run dev
 
 searxng를 뒤늦게 추가해서 추가로 설치할때 아래 처럼(처음 환경 구성할때는 이것 필요 없음)
 docker compose up -d searxng
@@ -197,3 +198,5 @@ search:
 
 다했다면 빠져 나와서
 docker restart rag-searxng
+
+컴퓨터 재기동 했더니 도커가 꺼져 있어서 도커 데스크탑을 다시 실행 했는데 컨테이너가 같이 올라왔다.

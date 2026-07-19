@@ -66,7 +66,7 @@ public class RagService {
                 
                 - 한글로만 답해라
                 """
-                        .formatted(context, question);
+                        .formatted(context, searchQuestion);
 
         List<Message> messages =
                 chatMemory.get(
@@ -93,6 +93,18 @@ public class RagService {
                         )
                         .call()
                         .content();
+
+        // 여기서 Memory 확인
+        messages = chatMemory.get(conversationId);
+
+        log.info("===== MEMORY AFTER CALL =====");
+        messages.forEach(message ->
+                log.info(
+                        "role={}, content={}",
+                        message.getMessageType(),
+                        message.getText()
+                )
+        );
 
         summaryService.summarize(
                 conversationId
