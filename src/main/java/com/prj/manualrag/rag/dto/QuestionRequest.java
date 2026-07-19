@@ -7,8 +7,9 @@ public record QuestionRequest(
         @NotBlank(message = "질문은 필수입니다.")
         @Schema(
                 description = "사용자 질문",
-                example = "필터 청소는 어떻게 하나요?"
+                example = "탈취 기능이 있나요?"
         )
         String question
+        , String conversationId
 ) {
 }

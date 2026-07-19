@@ -29,6 +29,7 @@ public class RagController {
             @Valid @RequestBody QuestionRequest request
     ){
         return ResponseEntity.ok(ApiResponse.success(ragService.answer(
-                request.question())));
+                request.question(),
+                request.conversationId())));
     }
 }

@@ -1,5 +1,6 @@
 package com.prj.manualrag.chunk;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 
@@ -7,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Component
 public class ParagraphExtractor {
     /**
@@ -26,6 +28,9 @@ public class ParagraphExtractor {
 
             for (String paragraphText : split) {
                 String cleaned = clean(paragraphText);
+                if (cleaned.contains("청정탈취필터")) {
+                    log.info("=== Paragraph ===\n{}", cleaned);
+                }
                 if (isValid(cleaned)) {
                     paragraphs.add(
                             Paragraph.builder()

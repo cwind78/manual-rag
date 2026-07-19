@@ -55,3 +55,8 @@ springdoc:
 
   api-docs:
     path: /v3/api-docs
+
+web:
+  search:
+    searxng:
+      url: http://localhost:8081/search

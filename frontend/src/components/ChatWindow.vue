@@ -10,6 +10,9 @@ const input = ref('')
 const messages = ref([])
 const loading = ref(false)
 const chatArea = ref(null)
+const conversationId = ref(
+    crypto.randomUUID()
+)
 
 async function send() {
 
@@ -38,7 +41,8 @@ async function send() {
         await axios.post(
             '/api/rag/question',
             {
-              question
+              question,
+              conversationId: conversationId.value
             }
         )
 

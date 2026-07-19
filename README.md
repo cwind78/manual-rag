@@ -106,7 +106,7 @@ Invoke-RestMethod `
 이면 성공
 한글이 깨져서
 $body = @{
-    question = "냉장고 필터 청소 방법"
+    question = "uv 청정탈취필터는 어떤 기능인가"
     productName   = "냉장고"
     manufacturer    = "엘지전자"
     modelName     = "RNL12NO1231"
@@ -147,3 +147,53 @@ docker exec -it rag-ollama ollama list
 NAME                       ID              SIZE      MODIFIED       
 nomic-embed-text:latest    0a109f422b47    274 MB    9 seconds ago
 qwen2.5:7b                 845dbda0ea48    4.7 GB    54 seconds ago
+
+깃헙에 붇기
+git status
+git add .
+git commit -m "변경 내용"
+git push origin main
+
+vue 프로젝트 생성
+프로젝트 루트로 이동
+PS C:\workspace\manual-rag>npm create vite@latest frontend
+설치 하는 중 아래 프람프트 나오면 선택
+Framework:
+Vue
+Variant:
+JavaScript
+그 외 다른건 읽어보고 처리
+
+cd frontend
+npm install
+npm install -D tailwindcss @tailwindcss/vite
+npm install lucide-vue-next
+npm install axios
+
+searxng를 뒤늦게 추가해서 추가로 설치할때 아래 처럼(처음 환경 구성할때는 이것 필요 없음)
+docker compose up -d searxng
+docker ps
+searxng 컨테이너 up 되어 있는지 확인
+http://localhost:8081/search?q=냉장고&format=json
+해보래서 했는데 403. 설정 문제라고 함
+브라우저에서
+http://localhost:8081/search
+했더니 검색화면 나오고 오늘날짜라고 검색했더니 이것저것 검색 결과 보여줌
+api 활성화
+docker exec -it rag-searxng sh
+ls /etc/searxng
+settings.yml
+파일내용이
+search:
+  formats:
+    - html
+이렇게 되어 있으면
+    - json
+을 추가하라는데 저런 내용이 없다. 제일 아래에 전체 추가해 준다
+search:
+  formats:
+    - html
+    - json
+
+다했다면 빠져 나와서
+docker restart rag-searxng

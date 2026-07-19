@@ -1,119 +1,168 @@
 package com.prj.manualrag.rag.service;
 
+import com.prj.manualrag.rag.domain.Intent;
 import com.prj.manualrag.rag.dto.QuestionResponse;
-
+import com.prj.manualrag.rag.memory.ConversationSummaryStore;
 import lombok.RequiredArgsConstructor;
-
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
-
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Service;
-
-
 import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RagService {
-
-
-    private final VectorStore vectorStore;
-
     private final ChatClient chatClient;
-//    private QuestionResponse questionResponse;
+    private final IntentClassifier intentClassifier;
+    private final DocumentSearchTool documentSearchTool;
+    private final WebSearchTool webSearchTool;
+    private final ChatMemory chatMemory;
+    private final ConversationSummaryStore summaryStore;
+    private final ConversationSummaryService summaryService;
 
+    public QuestionResponse answer(String question, String conversationId) {
+        log.info(
+                "conversationId={}, question={}",
+                conversationId,
+                question
+        );
 
-    public QuestionResponse answer(
-            String question
-    ){
-
-
-        /*
-         * 1. Vector 검색
-         */
-        List<Document> documents =
-                vectorStore.similaritySearch(
-                        SearchRequest
-                                .builder()
-                                .query(question)
-                                .topK(20)
-                                .similarityThreshold(0.0)
-                                .build()
+        String summary =
+                summaryStore.get(
+                        conversationId
                 );
 
-        log.info("검색 문서 개수={}", documents.size());
 
-        documents.forEach(d ->
+        String searchQuestion =
+                rewriteQuestion(
+                        question,
+                        summary
+                );
+
+        Intent intent = intentClassifier.classify(question);
+        String context = "";
+        if(intent == Intent.DOCUMENT) {
+            context = documentSearchTool.search(searchQuestion);
+        } else if(intent == Intent.WEB) {
+            context = webSearchTool.search(searchQuestion);
+        }
+
+        log.info("Selected intent: {}", intent.toString());
+        String prompt = """
+                당신은 한국어 AI Assistant이다.
+                답변 규칙:
+                - 자료 내용이 있으면 반드시 자료를 근거로 답한다.
+                - 자료 내용이 없으면 일반 지식으로 답할 수 있다.
+                - 자료와 일반 지식이 충돌하면 자료를 우선한다.
+
+                자료 내용:
+                %s
+
+                질문:
+                %s
+                
+                - 한글로만 답해라
+                """
+                        .formatted(context, question);
+
+        List<Message> messages =
+                chatMemory.get(
+                        conversationId
+                );
+
+
+        messages.forEach(message ->
                 log.info(
-                        "content={}",
-                        d.getText().substring(
-                                0,
-                                Math.min(100, d.getText().length())
-                        )
+                        "memory role={}, content={}",
+                        message.getMessageType(),
+                        message.getText()
                 )
         );
 
-        /*
-         * 2. 검색 결과 Context 생성
-         */
-        String context =
-                documents.stream()
-                        .map(Document::getText)
-                        .reduce(
-                                "",
-                                (a,b) ->
-                                        a + "\n\n" + b
-                        );
-
-
-
-        /*
-         * 3. LLM Prompt 생성
-         */
-        String prompt =
-                """
-        당신은 한국어로 답변하는 제품 사용 설명서 안내 AI입니다.
-
-        반드시 아래 설명서 내용만 근거로 답변하세요.
-
-        답변 규칙:
-        1. 반드시 한국어로만 답변하세요.
-        2. 한자, 중국어, 일본어 문자를 사용하지 마세요.
-        3. 설명서에 없는 내용은 추측하지 마세요.
-        4. 모르는 내용이면 "설명서에서 확인할 수 없습니다."라고 답하세요.
-        5. 제품명, 모델명 등 고유명사를 제외하고 모든 설명은 한국어로 작성하세요.
-
-        설명서 내용:
-        %s
-
-
-        사용자 질문:
-        %s
-        """
-                        .formatted(
-                                context,
-                                question
-                        );
-
-
-
-        /*
-         * 4. LLM 호출
-         */
-        String answer =
-                chatClient
+        String answer = chatClient
                         .prompt()
                         .user(prompt)
+                        .advisors(
+                                advisor -> advisor.param(
+                                        ChatMemory.CONVERSATION_ID,
+                                        conversationId
+                                )
+                        )
                         .call()
                         .content();
 
-
+        summaryService.summarize(
+                conversationId
+        );
 
         return new QuestionResponse(answer);
+
+//        String answer =
+//                chatClient
+//                        .prompt()
+//                        .system("""
+//                                당신은 문서 검색 기능을 사용할 수 있는 AI Assistant이다.
+//
+//                                                    규칙
+//
+//                                                    1. 사용자가 업로드한 문서에 대한 질문이면 반드시 Tool을 사용한다.
+//
+//                                                    2. Tool이 반환한 내용을 근거로 최종 답변을 작성한다.
+//
+//                                                    3. "검색하겠습니다.", "찾아보겠습니다." 같은 중간 과정을 사용자에게 말하지 않는다.
+//
+//                                                    4. Tool의 반환 내용을 그대로 인용하지 말고 자연스럽게 답변한다.
+//
+//                                                    5. Tool에서 충분한 정보를 찾지 못하거나 문서에 대한 질문이 아니면 추론하여 답한다.
+//                                                    단 Tool을 사용했지만 충분한 정보를 찾지 못한경우 "업로드된 문서에서 확인할 수 없습니다."
+//                                                    라고 답한 다음에 추론하여 답한다.
+//
+//                                                    6. 한글로만 답한다.
+//""")
+//                        .tools(documentSearchTool)
+//                        .user(question)
+//                        .call()
+//                        .content();
+//
+//        return new QuestionResponse(answer);
+    }
+
+    private String rewriteQuestion(
+            String question,
+            String summary
+    ){
+
+
+        if(summary.isBlank()){
+            return question;
+        }
+
+
+        return chatClient
+                .prompt()
+                .user(
+                        """
+                        이전 대화 내용을 참고해서
+                        검색하기 좋은 질문으로 변경하세요.
+            
+                        이전 대화:
+                        %s
+            
+                        현재 질문:
+                        %s
+            
+                        검색 질문만 출력하세요.
+                        """
+                                .formatted(
+                                        summary,
+                                        question
+                                )
+                )
+                .call()
+                .content();
+
     }
 }

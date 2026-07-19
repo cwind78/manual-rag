@@ -1,4 +1,14 @@
 package com.prj.manualrag.rag.dto;
 
-public record SearchResult() {
+import org.springframework.ai.document.Document;
+
+import java.util.List;
+
+public record SearchResult(
+
+        String context,
+
+        List<Document> documents
+
+) {
 }

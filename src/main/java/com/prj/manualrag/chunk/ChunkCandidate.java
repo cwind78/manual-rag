@@ -9,31 +9,16 @@ import java.util.Map;
 
 @Getter
 public class ChunkCandidate {
-
-
-    private final List<Paragraph> paragraphs =
-            new ArrayList<>();
-
-
-    private final StringBuilder content =
-            new StringBuilder();
-
-
-    private Map<String, Object> metadata =
-            new HashMap<>();
-
+    private final List<Paragraph> paragraphs = new ArrayList<>();
+    private final StringBuilder content = new StringBuilder();
+    private Map<String, Object> metadata = new HashMap<>();
 
     /**
      * 현재 Chunk embedding
      */
     private float[] embedding;
 
-
-
-    public ChunkCandidate(
-            Paragraph paragraph
-    ) {
-
+    public ChunkCandidate(Paragraph paragraph) {
         addParagraph(paragraph);
     }
 

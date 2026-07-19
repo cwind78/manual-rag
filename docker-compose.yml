@@ -26,6 +26,19 @@ services:
 
     volumes:
       - ollama-data:/root/.ollama
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: rag-searxng
+    restart: unless-stopped
+
+    ports:
+      - "8081:8080"
+
+    volumes:
+      - searxng-data:/etc/searxng
+
 volumes:
   postgres-data:
   ollama-data:
+  searxng-data:
