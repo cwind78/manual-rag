@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class DocumentSearchTool {
@@ -25,10 +27,10 @@ public class DocumentSearchTool {
             
             검색된 문서를 그대로 반환한다.
             """)
-    public String search(String question){
+    public String search(String question, List<String> selectedFiles){
 
         SearchResult result =
-                searchService.search(question);
+                searchService.search(question, selectedFiles);
 
         return result.context();
     }

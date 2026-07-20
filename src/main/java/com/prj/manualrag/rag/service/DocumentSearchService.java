@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -20,13 +21,19 @@ public class DocumentSearchService {
     private final VectorStore vectorStore;
     private final KeywordSearchService keywordSearchService;
 
-    public SearchResult search(String question){
+    public SearchResult search(String question, List<String> selectedFiles){
+        String filter = selectedFiles.stream()
+                .map(f -> "fileName == '" + f + "'")
+                .collect(Collectors.joining(" or "));
+
+        log.info("===============fileName: {}", filter);
 
         List<Document> semanticDocuments =
                 vectorStore.similaritySearch(
                         SearchRequest.builder()
                                 .query(question)
                                 .topK(10)
+                                .filterExpression(filter)
                                 .similarityThreshold(0.0)
                                 .build()
                 );

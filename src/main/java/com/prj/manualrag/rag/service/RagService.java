@@ -22,6 +22,7 @@ public class RagService {
     private final ChatMemory chatMemory;
     private final ConversationSummaryStore summaryStore;
     private final ConversationSummaryService summaryService;
+    private final DocumentSelectorService documentSelectorService;
 
     public QuestionResponse answer(String question, String conversationId) {
         log.info(
@@ -45,7 +46,13 @@ public class RagService {
         Intent intent = intentClassifier.classify(question);
         String context = "";
         if(intent == Intent.DOCUMENT) {
-            context = documentSearchTool.search(searchQuestion);
+//            context = documentSearchTool.search(searchQuestion);
+            List<String> selectedFiles = documentSelectorService.select(searchQuestion);
+            if(selectedFiles.isEmpty()) {
+                context = documentSearchTool.search(searchQuestion, null);
+            } else {
+                context = documentSearchTool.search(searchQuestion, selectedFiles);
+            }
         } else if(intent == Intent.WEB) {
             context = webSearchTool.search(searchQuestion);
         }
