@@ -200,3 +200,16 @@ search:
 docker restart rag-searxng
 
 컴퓨터 재기동 했더니 도커가 꺼져 있어서 도커 데스크탑을 다시 실행 했는데 컨테이너가 같이 올라왔다.
+
+맥북에서 임베딩 시멘틱 검색할때 메모리 부족하다는 메시지 나와서 도커 메모리 확인 했더니
+podman machine inspect
+MEMORY: 2048로 되어 있어서
+
+podman machine stop
+podman machine set --memory 8192
+podman machine start
+podman compose up -d
+
+실행
+
+podman logs rag-ollama --tail 100

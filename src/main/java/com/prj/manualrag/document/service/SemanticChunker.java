@@ -85,7 +85,7 @@ public class SemanticChunker {
              */
             if (similarity >= SIMILARITY_THRESHOLD) {
                 current.addParagraph(paragraph);
-                currentEmbedding =embedding(current.getText());
+                currentEmbedding = embedding(current.getText());
             } else {
                 result.add(toDocument(current));
                 current = new ChunkCandidate(paragraph);

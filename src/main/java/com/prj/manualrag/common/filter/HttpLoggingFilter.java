@@ -18,70 +18,35 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 @Component
 public class HttpLoggingFilter extends OncePerRequestFilter {
-
     @Override
-    protected void doFilterInternal(
-
-            HttpServletRequest request,
-
-            HttpServletResponse response,
-
-            FilterChain filterChain
-
-    ) throws ServletException, IOException {
-
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         if (request.getRequestURI().contains("/documents/upload")) {
-
             filterChain.doFilter(request, response);
-
             return;
         }
 
-        ContentCachingRequestWrapper requestWrapper =
-                new ContentCachingRequestWrapper(request);
-
-        ContentCachingResponseWrapper responseWrapper =
-                new ContentCachingResponseWrapper(response);
-
+        ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
+        ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
         long start = System.currentTimeMillis();
 
+        log.info("{} {} from {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                request.getRemoteAddr());
+
         try {
-
-            filterChain.doFilter(
-                    requestWrapper,
-                    responseWrapper
-            );
-
+            filterChain.doFilter(requestWrapper, responseWrapper);
         } finally {
-
-            long elapsed =
-                    System.currentTimeMillis() - start;
-
-            String requestBody =
-                    new String(
-                            requestWrapper.getContentAsByteArray(),
-                            StandardCharsets.UTF_8
-                    );
-
-            String responseBody =
-                    new String(
-                            responseWrapper.getContentAsByteArray(),
-                            StandardCharsets.UTF_8
-                    );
+            long elapsed = System.currentTimeMillis() - start;
+            String requestBody = new String(requestWrapper.getContentAsByteArray(), StandardCharsets.UTF_8);
+            String responseBody = new String(responseWrapper.getContentAsByteArray(), StandardCharsets.UTF_8);
 
             log.info(
                     """
-                    
                     --> {} {}
-                    
-                    Request:
-                    {}
-                    
+                    Request: {}
                     <-- {} ({} ms)
-                    
-                    Response:
-                    {}
-                    
+                    Response: {}
                     """,
                     request.getMethod(),
                     request.getRequestURI(),
@@ -94,7 +59,5 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
             responseWrapper.copyBodyToResponse();
 
         }
-
     }
-
 }

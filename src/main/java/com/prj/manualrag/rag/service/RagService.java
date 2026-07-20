@@ -34,7 +34,7 @@ public class RagService {
                 summaryStore.get(
                         conversationId
                 );
-
+        log.info("summary={}", summary);
 
         String searchQuestion =
                 rewriteQuestion(

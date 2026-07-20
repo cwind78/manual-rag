@@ -64,10 +64,10 @@ public class DocumentUploadService {
         List<Document> chunks =
                 semanticChunker.chunk(documents);
 
-        chunks.stream()
-                .map(Document::getText)
-                .filter(text -> text.contains("청정탈취필터"))
-                .forEach(text -> log.info("청크 내용:\n{}", text));
+//        chunks.stream()
+//                .map(Document::getText)
+//                .filter(text -> text.contains("청정탈취필터"))
+//                .forEach(text -> log.info("청크 내용:\n{}", text));
         /*
          * 4. Embedding 생성 + Vector 저장
          */

@@ -2,12 +2,14 @@ package com.prj.manualrag.rag.service;
 
 import com.prj.manualrag.rag.memory.ConversationSummaryStore;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ConversationSummaryService {
@@ -41,7 +43,7 @@ public class ConversationSummaryService {
                         )
                         .call()
                         .content();
-
+        log.info("summary={}", summary);
         store.save(
                 conversationId,
                 summary
