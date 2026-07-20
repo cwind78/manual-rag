@@ -39,7 +39,7 @@ public class DocumentSearchService {
                 );
 
         List<Document> keywordDocuments =
-                keywordSearchService.search(question);
+                keywordSearchService.search(question, selectedFiles);
 
         List<Document> documents =
                 mergeDocuments(
