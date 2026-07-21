@@ -1,0 +1,13 @@
+app:
+  ai:
+    provider: litellm
+
+spring:
+  ai:
+    openai:
+      base-url: https://dev-litellm-internal.hanatour.com/v1
+      api-key: sk-0a_QQlU2PqlzDC1uyIuxGg
+
+      chat:
+        options:
+          model: openai/gpt-5-nano

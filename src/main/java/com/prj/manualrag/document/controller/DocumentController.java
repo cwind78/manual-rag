@@ -18,7 +18,7 @@ public class DocumentController {
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<DocumentUploadResponse>> upload(
             @RequestParam("file") MultipartFile file,
-            @RequestPart("metadata") DocumentUploadRequest request
+            @RequestPart("request") DocumentUploadRequest request
     ){
 
         return ResponseEntity.ok(ApiResponse.success(

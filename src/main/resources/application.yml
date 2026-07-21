@@ -26,7 +26,6 @@ spring:
           model: nomic-embed-text
 
     vectorstore:
-
       pgvector:
         initialize-schema: true
         dimensions: 768

@@ -26,7 +26,7 @@ public class RagService {
 
     public QuestionResponse answer(String question, String conversationId) {
         log.info(
-                "conversationId={}, question={}",
+                "===============conversationId={}, question={}",
                 conversationId,
                 question
         );
@@ -35,7 +35,7 @@ public class RagService {
                 summaryStore.get(
                         conversationId
                 );
-        log.info("summary={}", summary);
+        log.info("===============summary={}", summary);
 
         String searchQuestion =
                 rewriteQuestion(
@@ -80,10 +80,10 @@ public class RagService {
                         conversationId
                 );
 
-
+        log.info("===============memory size={}", messages.size());
         messages.forEach(message ->
                 log.info(
-                        "memory role={}, content={}",
+                        "===============memory role={}, content={}",
                         message.getMessageType(),
                         message.getText()
                 )
@@ -107,7 +107,7 @@ public class RagService {
         log.info("===== MEMORY AFTER CALL =====");
         messages.forEach(message ->
                 log.info(
-                        "role={}, content={}",
+                        "===============role={}, content={}",
                         message.getMessageType(),
                         message.getText()
                 )
