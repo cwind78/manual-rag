@@ -1,10 +1,13 @@
 package com.prj.manualrag.ai.config;
 
+//import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
@@ -14,12 +17,20 @@ public class VectorStoreConfig {
     @Bean
     public VectorStore vectorStore(
             JdbcTemplate jdbcTemplate,
-            EmbeddingModel embeddingModel
+            OllamaEmbeddingModel embeddingModel
     ) {
 
         return PgVectorStore.builder(jdbcTemplate,
                         embeddingModel)
                 .initializeSchema(true)
                 .build();
+    }
+
+    @Bean
+    @Primary
+    EmbeddingModel embeddingModel(
+            OllamaEmbeddingModel model
+    ){
+        return model;
     }
 }

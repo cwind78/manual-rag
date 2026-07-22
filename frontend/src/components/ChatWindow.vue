@@ -1,7 +1,6 @@
 <script setup>
 
 import {ref, nextTick} from 'vue'
-import axios from 'axios'
 import VoiceButton from './VoiceButton.vue'
 import FileUpload from './FileUpload.vue'
 
@@ -15,50 +14,65 @@ const conversationId = ref(
 )
 
 async function send() {
-
-  if (!input.value.trim())
-    return
-
+  if (!input.value.trim() || loading.value) return
 
   const question = input.value
-
-
-  messages.value.push({
-    role: 'user',
-    text: question
-  })
-  scrollToBottom()
-
+  messages.value.push({ role: 'user', text: question })
   input.value = ''
 
-
+  const aiMessage = { role: 'ai', text: '' }
+  messages.value.push(aiMessage)
   loading.value = true
-  scrollToBottom()
+  await scrollToBottom()
 
   try {
-
-    const res =
-        await axios.post(
-            '/api/rag/question',
-            {
-              question,
-              conversationId: conversationId.value
-            }
-        )
-
-
-    messages.value.push({
-      role: 'ai',
-      text: res.data.data.answer
+    const response = await fetch('/api/rag/question/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream'
+      },
+      body: JSON.stringify({ question, conversationId: conversationId.value })
     })
-    scrollToBottom()
 
+    if (!response.ok || !response.body) {
+      throw new Error(`SSE request failed: ${response.status}`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+
+      for (const eventText of events) {
+        let eventName = 'message'
+        let data = ''
+
+        for (const line of eventText.split('\n')) {
+          if (line.startsWith('event:')) eventName = line.slice(6).trim()
+          if (line.startsWith('data:')) data += line.slice(5).trimStart()
+        }
+
+        if (eventName === 'message') {
+          aiMessage.text += data
+          await scrollToBottom()
+        }
+      }
+    }
+  } catch (error) {
+    console.error(error)
+    aiMessage.text = '답변을 가져오는 중 오류가 발생했습니다.'
   } finally {
-
     loading.value = false
-
+    await scrollToBottom()
   }
-
 }
 
 async function scrollToBottom(){
@@ -72,7 +86,7 @@ async function scrollToBottom(){
 
 
   const target =
-      el.scrollHeight - (el.clientHeight * 0.45)
+      el.scrollHeight - el.clientHeight
 
 
   el.scrollTo({
@@ -108,24 +122,28 @@ function setVoice(text) {
 
 <template>
 
-  <div class="w-screen h-screen flex flex-col bg-white">
+  <div class="relative w-screen h-screen overflow-hidden bg-white">
 
 
     <!-- 상단 제목 -->
     <header
         class="
-        h-16
-        shrink-0
-        border-b
+        absolute
+        top-0
+        left-0
+        right-0
+        z-10
         flex
         items-center
         px-6
+        py-5
         font-semibold
         text-lg
+        pointer-events-none
         "
     >
 
-      📘 Manual AI
+      <span>Manual AI</span>
 
     </header>
 
@@ -134,11 +152,14 @@ function setVoice(text) {
     <main
         ref="chatArea"
         class="
-        flex-1
+        absolute
+        inset-0
         overflow-y-auto
         p-6
+        pl-24
+        pb-32
         space-y-6
-        bg-[#f7f7f8]
+        bg-white
         "
     >
 
@@ -196,14 +217,13 @@ function setVoice(text) {
                     py-3
                     whitespace-pre-wrap
                     leading-relaxed
-                    shadow-sm
                     "
               :class="
                         message.role==='user'
                         ?
-                        'bg-black text-white'
+                        'bg-[#f2f2f2] text-gray-900'
                         :
-                        'bg-white border'
+                        'bg-white'
                     "
           >
 
@@ -229,7 +249,6 @@ function setVoice(text) {
         <div
             class="
                 bg-white
-                border
                 rounded-2xl
                 px-5
                 py-3
@@ -249,10 +268,13 @@ function setVoice(text) {
     <!-- 하단 입력 영역 -->
     <footer
         class="
-        shrink-0
-        border-t
-        bg-white
+        absolute
+        bottom-0
+        left-0
+        right-0
+        z-10
         p-4
+        pointer-events-none
         "
     >
 
@@ -261,10 +283,12 @@ function setVoice(text) {
           class="
             max-w-4xl
             mx-auto
+            pointer-events-auto
             flex
             items-center
             gap-3
-            border
+            bg-white
+            border border-gray-200
             rounded-3xl
             px-4
             py-2
@@ -278,7 +302,7 @@ function setVoice(text) {
         <input
             v-model="input"
             @keyup.enter="send"
-            placeholder="설명서에 대해 질문하세요"
+            placeholder="입력하세요"
             class="
                 flex-1
                 outline-none

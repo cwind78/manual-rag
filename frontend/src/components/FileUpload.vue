@@ -1,6 +1,7 @@
 <script setup>
 import { reactive, ref } from "vue"
 import axios from "axios"
+import { Paperclip } from 'lucide-vue-next'
 
 
 const showModal = ref(false)
@@ -174,13 +175,21 @@ async function upload() {
   <button
       class="
         cursor-pointer
-        text-sm
-        text-gray-600
-        hover:text-blue-600
+        w-10
+        h-10
+        rounded-full
+        bg-black
+        text-white
+        flex
+        items-center
+        justify-center
+        shrink-0
+        transition
+        hover:bg-gray-800
       "
       @click="openUploadModal"
   >
-    📎 업로드
+    <Paperclip :size="18" :stroke-width="2.2" aria-label="파일 업로드" />
   </button>
 
 
@@ -200,11 +209,13 @@ async function upload() {
 
     <div
         class="
-          bg-white
+          bg-white/95
+          text-gray-800
           rounded-xl
           shadow-xl
           w-[500px]
           p-6
+          upload-modal
         "
     >
 
@@ -239,7 +250,8 @@ async function upload() {
             @change="selectFile"
             class="
               w-full
-              border
+              border border-gray-200
+              bg-white
               rounded
               p-2
             "
@@ -281,7 +293,8 @@ async function upload() {
             placeholder="예) 모델코드 사용자 설명서"
             class="
               w-full
-              border
+              border border-gray-200
+              bg-white
               rounded
               p-2
             "
@@ -311,7 +324,8 @@ async function upload() {
             v-model="form.category"
             class="
               w-full
-              border
+              border border-gray-200
+              bg-white
               rounded
               p-2
             "
@@ -354,24 +368,36 @@ async function upload() {
 
           <label
               class="
-                text-sm
-                font-medium
-              "
+              text-sm
+              font-medium
+            "
           >
             메타데이터
           </label>
 
 
-          <button
-              type="button"
-              @click="addMetadata"
-              class="
-                text-xs
-                text-blue-600
-              "
-          >
-            + 추가
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+                type="button"
+                @click="addMetadata"
+                aria-label="메타데이터 추가"
+                class="
+                  w-5 h-5 rounded-full bg-gray-700 text-white
+                  flex items-center justify-center text-sm leading-none
+                "
+            >+</button>
+            <button
+                type="button"
+                @click="removeMetadata(form.metadata.length - 1)"
+                :disabled="form.metadata.length === 1"
+                aria-label="메타데이터 삭제"
+                class="
+                  w-5 h-5 rounded-full bg-gray-700 text-white
+                  flex items-center justify-center text-sm leading-none
+                  disabled:opacity-30
+                "
+            >−</button>
+          </div>
 
 
         </div>
@@ -379,22 +405,24 @@ async function upload() {
 
 
 
-        <div
-            v-for="(item,index) in form.metadata"
-            :key="index"
-            class="
-              flex
-              gap-2
-              mb-2
-            "
-        >
+          <div class="h-20 overflow-y-auto pr-1">
+            <div
+              v-for="(item,index) in form.metadata"
+              :key="index"
+              class="
+                flex
+                gap-2
+                mb-2
+              "
+            >
 
           <input
               v-model="item.key"
               placeholder="키"
               class="
                 flex-1
-                border
+                border border-gray-200
+                bg-white
                 rounded
                 p-2
                 text-sm
@@ -407,7 +435,8 @@ async function upload() {
               placeholder="값"
               class="
                 flex-1
-                border
+                border border-gray-200
+                bg-white
                 rounded
                 p-2
                 text-sm
@@ -419,15 +448,15 @@ async function upload() {
               type="button"
               @click="removeMetadata(index)"
               class="
-                text-red-500
-                text-sm
+                hidden
               "
           >
             삭제
           </button>
 
 
-        </div>
+            </div>
+          </div>
 
 
       </div>
@@ -450,10 +479,12 @@ async function upload() {
             type="button"
             @click="closeModal"
             class="
-              px-4
-              py-2
-              border
+              px-3
+              py-1.5
+              border border-gray-200
+              bg-white
               rounded
+              text-sm
             "
         >
           취소
@@ -464,11 +495,12 @@ async function upload() {
             type="button"
             @click="upload"
             class="
-              px-4
-              py-2
+              px-3
+              py-1.5
               bg-blue-600
               text-white
               rounded
+              text-sm
             "
         >
           업로드

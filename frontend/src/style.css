@@ -18,6 +18,30 @@ body {
           sans-serif;
 }
 
+button,
+input {
+  font: inherit;
+}
+
+button {
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 14%);
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: none;
+}
+
+.upload-modal input,
+.upload-modal select {
+  background-color: #fff;
+}
+
 
 * {
   box-sizing: border-box;

@@ -4,7 +4,7 @@ import ChatWindow from './components/ChatWindow.vue'
 
 
 <template>
-  <main class="w-screen h-screen overflow-hidden"style="height:100vh;background:red;">
+  <main class="w-screen h-screen overflow-hidden">
     <ChatWindow />
   </main>
 </template>

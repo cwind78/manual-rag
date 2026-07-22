@@ -30,6 +30,15 @@ spring:
         initialize-schema: true
         dimensions: 768
 
+    openai:
+      base-url: https://dev-litellm.hanatour.com/
+      api-key: sk-0a_QQlU2PqlzDC1uyIuxGg
+
+      chat:
+        options:
+          model: openai/gpt-5-nano
+          temperature: 1
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -59,3 +68,7 @@ web:
   search:
     searxng:
       url: http://localhost:8081/search
+
+app:
+  ai:
+    provider: OLLAMA

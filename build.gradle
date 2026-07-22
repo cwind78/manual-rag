@@ -38,7 +38,7 @@ dependencies {
      * Spring AI
      */
 	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
-//	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	implementation 'org.springframework.ai:spring-ai-pgvector-store'
 
 	// Spring AI Core
