@@ -11,10 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.MediaType;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
 
 @Tag(name = "RAG")
 @RestController
@@ -36,15 +33,4 @@ public class RagController {
                 request.conversationId())));
     }
 
-    @PostMapping(value = "/question/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> streamQuestion(
-            @Valid @RequestBody QuestionRequest request
-    ) {
-        return ragService.streamAnswer(
-                        request.question(), request.conversationId())
-                .map(token -> ServerSentEvent.<String>builder()
-                        .event("message").data(token).build())
-                .concatWithValues(ServerSentEvent.<String>builder()
-                        .event("done").data("[DONE]").build());
-    }
 }

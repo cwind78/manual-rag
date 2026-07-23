@@ -10,7 +10,8 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import reactor.core.publisher.Flux;
+import java.util.Objects;
+
 
 @Slf4j
 @Service
@@ -24,43 +25,6 @@ public class RagService {
     private final ConversationSummaryStore summaryStore;
     private final ConversationSummaryService summaryService;
     private final DocumentSelectorService documentSelectorService;
-
-    public Flux<String> streamAnswer(String question, String conversationId) {
-        String summary = summaryStore.get(conversationId);
-        String searchQuestion = rewriteQuestion(question, summary);
-        Intent intent = intentClassifier.classify(question);
-        String context = "";
-
-        if (intent == Intent.DOCUMENT) {
-            List<String> selectedFiles = documentSelectorService.select(searchQuestion);
-            context = selectedFiles.isEmpty()
-                    ? documentSearchTool.search(searchQuestion, null)
-                    : documentSearchTool.search(searchQuestion, selectedFiles);
-        } else if (intent == Intent.WEB) {
-            context = webSearchTool.search(searchQuestion);
-        }
-
-        String prompt = """
-                당신은 한국어 AI Assistant이다.
-                답변 규칙:
-                - 자료 내용이 있으면 반드시 자료를 근거로 답한다.
-                - 자료 내용이 없으면 일반 지식으로 답할 수 있다.
-                - 자료와 일반 지식이 충돌하면 자료를 우선한다.
-                자료 내용:
-                %s
-                질문:
-                %s
-                - 한글로만 답해라
-                """.formatted(context, searchQuestion);
-
-        return chatClient.prompt()
-                .user(prompt)
-                .advisors(advisor -> advisor.param(
-                        ChatMemory.CONVERSATION_ID, conversationId))
-                .stream()
-                .content()
-                .doOnComplete(() -> summaryService.summarize(conversationId));
-    }
 
     public QuestionResponse answer(String question, String conversationId) {
         log.info(

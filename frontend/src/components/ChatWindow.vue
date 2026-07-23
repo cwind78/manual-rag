@@ -1,6 +1,7 @@
 <script setup>
 
 import {ref, nextTick} from 'vue'
+import axios from 'axios'
 import VoiceButton from './VoiceButton.vue'
 import FileUpload from './FileUpload.vue'
 
@@ -14,64 +15,28 @@ const conversationId = ref(
 )
 
 async function send() {
-  if (!input.value.trim() || loading.value) return
+  if (!input.value.trim()) return
 
   const question = input.value
   messages.value.push({ role: 'user', text: question })
+  scrollToBottom()
   input.value = ''
-
-  const aiMessage = { role: 'ai', text: '' }
-  messages.value.push(aiMessage)
   loading.value = true
-  await scrollToBottom()
+  scrollToBottom()
 
   try {
-    const response = await fetch('/api/rag/question/stream', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream'
-      },
-      body: JSON.stringify({ question, conversationId: conversationId.value })
+    const res = await axios.post('/api/rag/question', {
+      question,
+      conversationId: conversationId.value
     })
 
-    if (!response.ok || !response.body) {
-      throw new Error(`SSE request failed: ${response.status}`)
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder('utf-8')
-    let buffer = ''
-
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const events = buffer.split('\n\n')
-      buffer = events.pop() || ''
-
-      for (const eventText of events) {
-        let eventName = 'message'
-        let data = ''
-
-        for (const line of eventText.split('\n')) {
-          if (line.startsWith('event:')) eventName = line.slice(6).trim()
-          if (line.startsWith('data:')) data += line.slice(5).trimStart()
-        }
-
-        if (eventName === 'message') {
-          aiMessage.text += data
-          await scrollToBottom()
-        }
-      }
-    }
-  } catch (error) {
-    console.error(error)
-    aiMessage.text = '답변을 가져오는 중 오류가 발생했습니다.'
+    messages.value.push({
+      role: 'ai',
+      text: res.data.data.answer
+    })
+    scrollToBottom()
   } finally {
     loading.value = false
-    await scrollToBottom()
   }
 }
 
