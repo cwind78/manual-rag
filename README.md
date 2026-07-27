@@ -213,3 +213,8 @@ podman compose up -d
 실행
 
 podman logs rag-ollama --tail 100
+
+2.5:7b 모델은 mcp를 잘 선택하지 않는 경향이 있다고 해서 2.5:14b를 설치하고 설정한다.
+docker exec -it rag-ollama ollama run qwen2.5:14b
+메모리 부족해서 삭제
+docker exec -it rag-ollama ollama rm qwen2.5:14b

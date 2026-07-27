@@ -3,14 +3,17 @@ package com.prj.manualrag.rag.service;
 import com.prj.manualrag.rag.domain.Intent;
 import com.prj.manualrag.rag.dto.QuestionResponse;
 import com.prj.manualrag.rag.memory.ConversationSummaryStore;
+import com.prj.manualrag.mcp.service.McpToolCallbackFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.ai.tool.ToolCallback;
 
 
 @Slf4j
@@ -25,6 +28,7 @@ public class RagService {
     private final ConversationSummaryStore summaryStore;
     private final ConversationSummaryService summaryService;
     private final DocumentSelectorService documentSelectorService;
+    private final McpToolCallbackFactory mcpToolCallbackFactory;
 
     public QuestionResponse answer(String question, String conversationId) {
         log.info(
@@ -51,7 +55,7 @@ public class RagService {
 //            context = documentSearchTool.search(searchQuestion);
             List<String> selectedFiles = documentSelectorService.select(searchQuestion);
             if(selectedFiles.isEmpty()) {
-                context = documentSearchTool.search(searchQuestion, null);
+               //context = documentSearchTool.search(searchQuestion, null);
             } else {
                 context = documentSearchTool.search(searchQuestion, selectedFiles);
             }
@@ -91,17 +95,56 @@ public class RagService {
                 )
         );
 
-        String answer = chatClient
-                        .prompt()
-                        .user(prompt)
-                        .advisors(
-                                advisor -> advisor.param(
-                                        ChatMemory.CONVERSATION_ID,
-                                        conversationId
-                                )
+        List<ToolCallback> mcpTools =
+                mcpToolCallbackFactory.createActiveCallbacks();
+
+//        String answer = chatClient
+//                        .prompt()
+//                        .user(prompt)
+//                        .toolCallbacks(mcpTools)
+//                        .advisors(
+//                                advisor -> advisor.param(
+//                                        ChatMemory.CONVERSATION_ID,
+//                                        conversationId
+//                                )
+//                        )
+//                        .call()
+//                        .content();
+
+        ChatResponse response = chatClient
+                .prompt()
+                .user(prompt)
+                .toolCallbacks(mcpTools)
+                .advisors(
+                        advisor -> advisor.param(
+                                ChatMemory.CONVERSATION_ID,
+                                conversationId
                         )
-                        .call()
-                        .content();
+                )
+                .call()
+                .chatResponse();
+
+        log.info(
+                "LLM tool call 여부: hasToolCalls={}",
+                response.hasToolCalls()
+        );
+
+        if (response.hasToolCalls()) {
+            response.getResult()
+                    .getOutput()
+                    .getToolCalls()
+                    .forEach(toolCall ->
+                            log.info(
+                                    "LLM tool call: name={}, arguments={}",
+                                    toolCall.name(),
+                                    toolCall.arguments()
+                            )
+                    );
+        }
+
+        String answer = response.getResult()
+                .getOutput()
+                .getText(); //여기까지 테스트
 
         // 여기서 Memory 확인
         messages = chatMemory.get(conversationId);

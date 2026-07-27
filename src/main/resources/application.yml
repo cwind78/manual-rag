@@ -71,4 +71,4 @@ web:
 
 app:
   ai:
-    provider: OLLAMA
+    provider: LITELLM

@@ -37,6 +37,13 @@ button:not(:disabled):active {
   box-shadow: none;
 }
 
+button.menu-item:not(:disabled):hover,
+button.menu-item:not(:disabled):active {
+  transform: none;
+  box-shadow: none;
+  background-color: transparent;
+}
+
 .upload-modal input,
 .upload-modal select {
   background-color: #fff;
