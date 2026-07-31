@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.ai.tool.ToolCallback;
+import com.prj.manualrag.capability.CapabilitySearchService;
+import org.springframework.ai.document.Document;
 
 
 @Slf4j
@@ -29,19 +31,20 @@ public class RagService {
     private final ConversationSummaryService summaryService;
     private final DocumentSelectorService documentSelectorService;
     private final McpToolCallbackFactory mcpToolCallbackFactory;
+    private final CapabilitySearchService capabilitySearchService;
 
     public QuestionResponse answer(String question, String conversationId) {
-        log.info(
-                "===============conversationId={}, question={}",
-                conversationId,
-                question
-        );
+//        log.info(
+//                "===============conversationId={}, question={}",
+//                conversationId,
+//                question
+//        );
 
         String summary =
                 summaryStore.get(
                         conversationId
                 );
-        log.info("===============summary={}", summary);
+//        log.info("===============summary={}", summary);
 
         String searchQuestion =
                 rewriteQuestion(
@@ -49,7 +52,14 @@ public class RagService {
                         summary
                 );
 
-        Intent intent = intentClassifier.classify(question);
+        List<Document> capabilityCandidates =
+                capabilitySearchService.search(question, 8);
+        log.info("Capability candidates: question={}, candidates={}",
+                question, capabilityCandidates.stream()
+                        .map(document -> document.getMetadata().get("capabilityName"))
+                        .toList());
+
+        Intent intent = intentClassifier.classify(question, capabilityCandidates);
         String context = "";
         if(intent == Intent.DOCUMENT) {
 //            context = documentSearchTool.search(searchQuestion);
@@ -81,19 +91,19 @@ public class RagService {
                 """
                         .formatted(context, searchQuestion);
 
-        List<Message> messages =
-                chatMemory.get(
-                        conversationId
-                );
+//        List<Message> messages =
+//                chatMemory.get(
+//                        conversationId
+//                );
 
-        log.info("===============memory size={}", messages.size());
-        messages.forEach(message ->
-                log.info(
-                        "===============memory role={}, content={}",
-                        message.getMessageType(),
-                        message.getText()
-                )
-        );
+//        log.info("===============memory size={}", messages.size());
+//        messages.forEach(message ->
+//                log.info(
+//                        "===============memory role={}, content={}",
+//                        message.getMessageType(),
+//                        message.getText()
+//                )
+//        );
 
         List<ToolCallback> mcpTools =
                 mcpToolCallbackFactory.createActiveCallbacks();
@@ -147,16 +157,16 @@ public class RagService {
                 .getText(); //여기까지 테스트
 
         // 여기서 Memory 확인
-        messages = chatMemory.get(conversationId);
+//        messages = chatMemory.get(conversationId);
 
-        log.info("===== MEMORY AFTER CALL =====");
-        messages.forEach(message ->
-                log.info(
-                        "===============role={}, content={}",
-                        message.getMessageType(),
-                        message.getText()
-                )
-        );
+//        log.info("===== MEMORY AFTER CALL =====");
+//        messages.forEach(message ->
+//                log.info(
+//                        "===============role={}, content={}",
+//                        message.getMessageType(),
+//                        message.getText()
+//                )
+//        );
 
         summaryService.summarize(
                 conversationId

@@ -47,7 +47,7 @@ public class DocumentSearchService {
                         keywordDocuments
                 );
 
-        log.info("Hybrid 검색 결과={}", documents.size());
+//        log.info("Hybrid 검색 결과={}", documents.size());
 
         String context =
                 documents.stream()

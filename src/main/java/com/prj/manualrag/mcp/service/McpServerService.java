@@ -8,6 +8,7 @@ import com.prj.manualrag.mcp.domain.McpToolEntity;
 import com.prj.manualrag.mcp.dto.McpServerCreateRequest;
 import com.prj.manualrag.mcp.repository.McpServerRepository;
 import com.prj.manualrag.mcp.repository.McpToolRepository;
+import com.prj.manualrag.capability.CapabilitySearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class McpServerService {
     private final McpToolRepository toolRepository;
     private final RemoteMcpClient client;
     private final ObjectMapper objectMapper;
+    private final CapabilitySearchService capabilitySearchService;
 
     public List<McpServerEntity> findAll() { return serverRepository.findAllByOrderByNameAsc(); }
 
@@ -63,11 +65,18 @@ public class McpServerService {
                 log.info("MCP raw tool: name={}, inputSchema={}",
                         tool.path("name").asText(), inputSchema);
 
-                toolRepository.save(McpToolEntity.builder().server(server)
+                McpToolEntity savedTool = toolRepository.save(McpToolEntity.builder().server(server)
                         .name(tool.path("name").asText())
                         .description(tool.path("description").asText(""))
                         .inputSchema(objectMapper.writeValueAsString(inputSchema))
                         .requiresApproval(false).build());
+                capabilitySearchService.register(
+                        "MCP_TOOL",
+                        server.getId() + ":" + savedTool.getName(),
+                        server.getName() + " / " + savedTool.getName(),
+                        server.getName() + " " + savedTool.getName() + " "
+                                + savedTool.getDescription()
+                );
             } catch (Exception e) { throw new IllegalStateException("MCP 도구 저장 실패", e); }
         }
         return toolRepository.findAllByServerOrderByNameAsc(server);

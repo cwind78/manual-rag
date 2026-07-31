@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
+import org.springframework.ai.document.Document;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -12,6 +14,10 @@ import org.springframework.stereotype.Service;
 public class IntentClassifier {
     private final ChatClient chatClient;
     public Intent classify(String question){
+        return classify(question, List.of());
+    }
+
+    public Intent classify(String question, List<Document> candidates){
         String result =
                 chatClient
                         .prompt()
@@ -38,8 +44,15 @@ public class IntentClassifier {
                                 일반 상식,
                                 일상 질문
 
+                                관련 기능 후보:
+                                %s
+
                                 반드시 DOCUMENT, WEB, GENERAL 중 하나만 출력한다.
-                                """)
+                                """.formatted(candidates.stream()
+                                .map(document -> document.getMetadata().get("capabilityType")
+                                        + " / " + document.getMetadata().get("capabilityName")
+                                        + " / " + document.getText())
+                                .reduce("", (a, b) -> a + "\n" + b)))
                         .user(question)
                         .call()
                         .content();

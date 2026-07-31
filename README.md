@@ -45,6 +45,8 @@ vector | 0.7.x | vector data type
 
 TRUNCATE TABLE vector_store RESTART IDENTITY;
 테이블 초기화
+TRUNCATE TABLE mcp_tools, mcp_servers RESTART IDENTITY;
+포린키 때문에 안될때 같이 트렁케이트
 
 종료:
 
@@ -218,3 +220,29 @@ podman logs rag-ollama --tail 100
 docker exec -it rag-ollama ollama run qwen2.5:14b
 메모리 부족해서 삭제
 docker exec -it rag-ollama ollama rm qwen2.5:14b
+
+벡터 db에서 capability 조회
+SELECT
+id,
+content,
+metadata
+FROM vector_store
+WHERE metadata ->> 'capability' = 'true';
+
+문서 Capability만 조회:
+
+SELECT
+id,
+content,
+metadata
+FROM vector_store
+WHERE metadata ->> 'capabilityType' = 'DOCUMENT';
+
+MCP Capability만 조회:
+
+SELECT
+id,
+content,
+metadata
+FROM vector_store
+WHERE metadata ->> 'capabilityType' = 'MCP_TOOL';

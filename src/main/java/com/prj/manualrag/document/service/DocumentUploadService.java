@@ -4,11 +4,13 @@ import com.prj.manualrag.document.dto.DocumentUploadRequest;
 import com.prj.manualrag.document.dto.DocumentUploadResponse;
 import com.prj.manualrag.document.entity.DocumentEntity;
 import com.prj.manualrag.document.repository.DocumentRepository;
+import com.prj.manualrag.capability.CapabilitySearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 //import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
@@ -21,6 +23,8 @@ public class DocumentUploadService {
     private final DocumentRepository documentRepository;
     private final VectorStore vectorStore;
     private final SemanticChunker semanticChunker;
+    private final ChatClient chatClient;
+    private final CapabilitySearchService capabilitySearchService;
 
     public DocumentUploadResponse upload(
             MultipartFile file, DocumentUploadRequest request
@@ -73,6 +77,28 @@ public class DocumentUploadService {
          */
         vectorStore.add(
                 chunks
+        );
+
+        String summary = chatClient.prompt()
+                .user("""
+                        다음 사용자 설명서의 검색용 요약을 작성하세요.
+                        제품명, 주요 기능, 설치, 사용, 교체, 고장 관련 주제를 포함하고
+                        300자 이내로 작성하세요.
+
+                        내용:
+                        %s
+                        """.formatted(chunks.stream()
+                        .map(Document::getText)
+                        .limit(8)
+                        .reduce("", (a, b) -> a + "\n" + b)))
+                .call()
+                .content();
+
+        capabilitySearchService.register(
+                "DOCUMENT",
+                String.valueOf(document.getId()),
+                request.title(),
+                request.title() + " " + summary
         );
 
         return new DocumentUploadResponse(
