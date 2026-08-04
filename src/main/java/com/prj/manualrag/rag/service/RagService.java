@@ -64,14 +64,26 @@ public class RagService {
 
         IntentDecision decision = intentClassifier.decide(question, capabilityCandidates);
 
-        if ((selectedRoutes == null || selectedRoutes.isEmpty())
-                && decision.candidates() != null && decision.candidates().size() > 1
-                && decision.confidence() < 0.85
-                && Math.abs(decision.candidates().get(0).confidence()
-                - decision.candidates().get(1).confidence()) < 0.15) {
+        List<IntentDecision.RouteCandidate> routeCandidates = decision.candidates() == null
+                ? List.of()
+                : decision.candidates().stream()
+                        .filter(candidate -> candidate != null
+                                && candidate.route() != null
+                                && !candidate.route().isBlank())
+                        .collect(java.util.stream.Collectors.collectingAndThen(
+                                java.util.stream.Collectors.toMap(
+                                        candidate -> candidate.route().toUpperCase(),
+                                        candidate -> candidate,
+                                        (first, ignored) -> first,
+                                        java.util.LinkedHashMap::new),
+                                map -> new java.util.ArrayList<>(map.values())));
+
+        // LLM이 복수의 사용 가능한 경로를 반환하면 임의로 하나를 선택하지 않는다.
+        // 사용자가 선택한 경로가 있을 때만 아래 실행 단계로 진행한다.
+        if ((selectedRoutes == null || selectedRoutes.isEmpty()) && routeCandidates.size() > 1) {
             return QuestionResponse.confirmation(
-                    "문서, 인터넷 검색, 일반 답변 중 어떤 방식으로 확인할까요?",
-                    decision.candidates().stream()
+                    "여러 방법으로 답변할 수 있습니다. 어떤 방법을 사용할까요?",
+                    routeCandidates.stream()
                             .limit(3)
                             .map(candidate -> new QuestionOption(
                                     candidate.route(), routeLabel(candidate.route())))
@@ -82,6 +94,9 @@ public class RagService {
         String selectedRoute = selectedRoutes != null && !selectedRoutes.isEmpty()
                 ? selectedRoutes.get(0)
                 : decision.route();
+        if (selectedRoute == null || selectedRoute.isBlank()) {
+            selectedRoute = "GENERAL";
+        }
         Intent intent = switch (selectedRoute.toUpperCase()) {
             case "DOCUMENT" -> Intent.DOCUMENT;
             case "WEB" -> Intent.WEB;
