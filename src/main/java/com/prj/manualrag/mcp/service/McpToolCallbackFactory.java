@@ -7,6 +7,7 @@ import com.prj.manualrag.mcp.domain.McpServerEntity;
 import com.prj.manualrag.mcp.domain.McpToolEntity;
 import com.prj.manualrag.mcp.repository.McpServerRepository;
 import com.prj.manualrag.mcp.repository.McpToolRepository;
+import com.prj.manualrag.agent.port.ExternalToolProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
@@ -17,14 +18,15 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class McpToolCallbackFactory {
+public class McpToolCallbackFactory implements ExternalToolProvider {
     private final McpServerRepository serverRepository;
     private final McpToolRepository toolRepository;
     private final RemoteMcpClient remoteMcpClient;
     private final ObjectMapper objectMapper;
     private final McpServerService mcpServerService;
 
-    public List<ToolCallback> createActiveCallbacks() {
+    @Override
+    public List<ToolCallback> activeTools() {
         List<ToolCallback> callbacks = new ArrayList<>();
         for (McpServerEntity server : serverRepository.findAllByEnabledTrue()) {
             List<McpToolEntity> tools =
@@ -47,5 +49,11 @@ public class McpToolCallbackFactory {
             }
         }
         return callbacks;
+    }
+
+    /** @deprecated use activeTools() through ExternalToolProvider. */
+    @Deprecated
+    public List<ToolCallback> createActiveCallbacks() {
+        return activeTools();
     }
 }

@@ -30,7 +30,8 @@ public class RagController {
     ){
         return ResponseEntity.ok(ApiResponse.success(ragService.answer(
                 request.question(),
-                request.conversationId())));
+                request.conversationId(),
+                request.selectedRoutes())));
     }
 
 }

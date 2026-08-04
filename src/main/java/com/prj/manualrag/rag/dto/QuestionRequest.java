@@ -1,5 +1,6 @@
 package com.prj.manualrag.rag.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 
@@ -9,7 +10,9 @@ public record QuestionRequest(
                 description = "사용자 질문",
                 example = "탈취 기능이 있나요?"
         )
-        String question
-        , String conversationId
+        String question,
+        String conversationId,
+        @JsonDeserialize(using = SelectedRoutesDeserializer.class)
+        java.util.List<String> selectedRoutes
 ) {
 }

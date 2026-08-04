@@ -7,17 +7,30 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.ai.document.Document;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.prj.manualrag.rag.dto.IntentDecision;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class IntentClassifier {
     private final ChatClient chatClient;
+    private final ObjectMapper objectMapper;
     public Intent classify(String question){
         return classify(question, List.of());
     }
 
     public Intent classify(String question, List<Document> candidates){
+        IntentDecision decision = decide(question, candidates);
+        return switch (decision.route().toUpperCase()) {
+            case "DOCUMENT" -> Intent.DOCUMENT;
+            case "WEB" -> Intent.WEB;
+            case "MCP" -> Intent.MCP;
+            default -> Intent.GENERAL;
+        };
+    }
+
+    public IntentDecision decide(String question, List<Document> candidates){
         String result =
                 chatClient
                         .prompt()
@@ -44,10 +57,15 @@ public class IntentClassifier {
                                 일반 상식,
                                 일상 질문
 
+                                MCP:
+                                GitHub, 외부 서비스, 계정 정보 조회 등 등록된 외부 기능이 필요한 질문
+
                                 관련 기능 후보:
                                 %s
 
-                                반드시 DOCUMENT, WEB, GENERAL 중 하나만 출력한다.
+                                반드시 다음 JSON만 출력한다.
+                                {"route":"DOCUMENT|WEB|MCP|GENERAL","confidence":0.0,
+                                "candidates":[{"route":"DOCUMENT","confidence":0.0,"reason":""}]}
                                 """.formatted(candidates.stream()
                                 .map(document -> document.getMetadata().get("capabilityType")
                                         + " / " + document.getMetadata().get("capabilityName")
@@ -57,13 +75,13 @@ public class IntentClassifier {
                         .call()
                         .content();
 
-        log.info("intent result={}", result);
-
-        if(result.contains("DOCUMENT")){
-            return Intent.DOCUMENT;
-        } else if(result.contains("WEB")){
-            return Intent.WEB;
+        log.info("intent decision result={}", result);
+        try {
+            String json = result.substring(result.indexOf('{'), result.lastIndexOf('}') + 1);
+            return objectMapper.readValue(json, IntentDecision.class);
+        } catch (Exception e) {
+            log.warn("Intent JSON parse failed; fallback to GENERAL. result={}", result, e);
+            return new IntentDecision("GENERAL", 0.0, List.of());
         }
-        return Intent.GENERAL;
     }
 }

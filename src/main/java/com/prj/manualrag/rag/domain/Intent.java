@@ -4,6 +4,7 @@ public enum Intent {
 
     DOCUMENT,
     WEB,
+    MCP,
     GENERAL
 
 }

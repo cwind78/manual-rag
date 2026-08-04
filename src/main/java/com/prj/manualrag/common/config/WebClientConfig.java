@@ -7,6 +7,7 @@ import io.netty.handler.timeout.WriteTimeoutHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -43,6 +44,14 @@ public class WebClientConfig {
                                                 new WriteTimeoutHandler(60, TimeUnit.SECONDS)));
 
         return WebClient.builder()
+                .defaultHeader(HttpHeaders.USER_AGENT,
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .defaultHeader(HttpHeaders.ACCEPT,
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .defaultHeader(HttpHeaders.ACCEPT_LANGUAGE,
+                        "ko-KR,ko;q=0.9,en-US;q=0.8")
+                .defaultHeader(HttpHeaders.REFERER,
+                        "http://localhost:8081/")
                 .clientConnector(
                         new ReactorClientHttpConnector(httpClient))
                 .build();

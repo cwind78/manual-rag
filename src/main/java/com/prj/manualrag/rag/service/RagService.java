@@ -3,7 +3,7 @@ package com.prj.manualrag.rag.service;
 import com.prj.manualrag.rag.domain.Intent;
 import com.prj.manualrag.rag.dto.QuestionResponse;
 import com.prj.manualrag.rag.memory.ConversationSummaryStore;
-import com.prj.manualrag.mcp.service.McpToolCallbackFactory;
+import com.prj.manualrag.agent.port.ExternalToolProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -16,6 +16,8 @@ import java.util.Objects;
 import org.springframework.ai.tool.ToolCallback;
 import com.prj.manualrag.capability.CapabilitySearchService;
 import org.springframework.ai.document.Document;
+import com.prj.manualrag.rag.dto.IntentDecision;
+import com.prj.manualrag.rag.dto.QuestionOption;
 
 
 @Slf4j
@@ -30,10 +32,11 @@ public class RagService {
     private final ConversationSummaryStore summaryStore;
     private final ConversationSummaryService summaryService;
     private final DocumentSelectorService documentSelectorService;
-    private final McpToolCallbackFactory mcpToolCallbackFactory;
+    private final ExternalToolProvider externalToolProvider;
     private final CapabilitySearchService capabilitySearchService;
 
-    public QuestionResponse answer(String question, String conversationId) {
+    public QuestionResponse answer(String question, String conversationId,
+                                   List<String> selectedRoutes) {
 //        log.info(
 //                "===============conversationId={}, question={}",
 //                conversationId,
@@ -59,9 +62,39 @@ public class RagService {
                         .map(document -> document.getMetadata().get("capabilityName"))
                         .toList());
 
-        Intent intent = intentClassifier.classify(question, capabilityCandidates);
+        IntentDecision decision = intentClassifier.decide(question, capabilityCandidates);
+
+        if ((selectedRoutes == null || selectedRoutes.isEmpty())
+                && decision.candidates() != null && decision.candidates().size() > 1
+                && decision.confidence() < 0.85
+                && Math.abs(decision.candidates().get(0).confidence()
+                - decision.candidates().get(1).confidence()) < 0.15) {
+            return QuestionResponse.confirmation(
+                    "문서, 인터넷 검색, 일반 답변 중 어떤 방식으로 확인할까요?",
+                    decision.candidates().stream()
+                            .limit(3)
+                            .map(candidate -> new QuestionOption(
+                                    candidate.route(), routeLabel(candidate.route())))
+                            .toList()
+            );
+        }
+
+        String selectedRoute = selectedRoutes != null && !selectedRoutes.isEmpty()
+                ? selectedRoutes.get(0)
+                : decision.route();
+        Intent intent = switch (selectedRoute.toUpperCase()) {
+            case "DOCUMENT" -> Intent.DOCUMENT;
+            case "WEB" -> Intent.WEB;
+            case "MCP" -> Intent.MCP;
+            default -> Intent.GENERAL;
+        };
         String context = "";
-        if(intent == Intent.DOCUMENT) {
+        boolean useDocument = selectedRoutes != null && selectedRoutes.stream()
+                .anyMatch(route -> "DOCUMENT".equalsIgnoreCase(route));
+        boolean useWeb = selectedRoutes != null && selectedRoutes.stream()
+                .anyMatch(route -> "WEB".equalsIgnoreCase(route));
+
+        if (useDocument || intent == Intent.DOCUMENT) {
 //            context = documentSearchTool.search(searchQuestion);
             List<String> selectedFiles = documentSelectorService.select(searchQuestion);
             if(selectedFiles.isEmpty()) {
@@ -69,8 +102,9 @@ public class RagService {
             } else {
                 context = documentSearchTool.search(searchQuestion, selectedFiles);
             }
-        } else if(intent == Intent.WEB) {
-            context = webSearchTool.search(searchQuestion);
+        }
+        if (useWeb || intent == Intent.WEB) {
+            context += "\n\n[웹 검색 결과]\n" + webSearchTool.search(searchQuestion);
         }
 
         log.info("Selected intent: {}", intent.toString());
@@ -106,7 +140,7 @@ public class RagService {
 //        );
 
         List<ToolCallback> mcpTools =
-                mcpToolCallbackFactory.createActiveCallbacks();
+                externalToolProvider.activeTools();
 
 //        String answer = chatClient
 //                        .prompt()
@@ -172,7 +206,7 @@ public class RagService {
                 conversationId
         );
 
-        return new QuestionResponse(answer);
+        return QuestionResponse.answer(answer);
 
 //        String answer =
 //                chatClient
@@ -202,6 +236,15 @@ public class RagService {
 //                        .content();
 //
 //        return new QuestionResponse(answer);
+    }
+
+    private String routeLabel(String route) {
+        return switch (route.toUpperCase()) {
+            case "DOCUMENT" -> "문서에서 확인";
+            case "WEB" -> "인터넷 검색";
+            case "MCP" -> "외부 기능 사용";
+            default -> "일반 답변";
+        };
     }
 
     private String rewriteQuestion(

@@ -14,7 +14,7 @@ const conversationId = ref(
     crypto.randomUUID()
 )
 
-async function send() {
+async function send(selectedRoutes = []) {
   if (!input.value.trim()) return
 
   const question = input.value
@@ -25,19 +25,39 @@ async function send() {
   scrollToBottom()
 
   try {
+    const routes = (Array.isArray(selectedRoutes) ? selectedRoutes : [selectedRoutes])
+        .map(route => typeof route === 'string' ? route : route?.id || route?.route)
+        .filter(Boolean)
+
     const res = await axios.post('/api/rag/question', {
       question,
-      conversationId: conversationId.value
+      conversationId: conversationId.value,
+      selectedRoutes: routes
     })
 
-    messages.value.push({
-      role: 'ai',
-      text: res.data.data.answer
-    })
+    const data = res.data.data
+    if (data.status === 'NEED_CONFIRMATION') {
+      messages.value.push({
+        role: 'ai',
+        text: data.question,
+        options: data.options,
+        originalQuestion: question
+      })
+    } else {
+      messages.value.push({ role: 'ai', text: data.answer })
+    }
     scrollToBottom()
   } finally {
     loading.value = false
   }
+}
+
+function chooseRoute(message, option) {
+  const route = typeof option === 'string' ? option : option?.id || option?.route
+  if (!route) return
+  send([route]).then(() => {
+    message.options = []
+  })
 }
 
 async function scrollToBottom(){
@@ -157,6 +177,17 @@ function setVoice(text) {
                     "
           >
             사용자
+          </div>
+
+          <div v-if="message.options?.length" class="mt-3 flex flex-wrap gap-2">
+            <button
+                v-for="option in message.options"
+                :key="option.id"
+                class="rounded-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:font-bold"
+                @click="chooseRoute(message, option)"
+            >
+              {{ option.label }}
+            </button>
           </div>
 
 

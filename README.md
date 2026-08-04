@@ -246,3 +246,51 @@ content,
 metadata
 FROM vector_store
 WHERE metadata ->> 'capabilityType' = 'MCP_TOOL';
+
+searXNG 검색 결과 이상
+컨테이너 로그 확인
+docker logs rag-searxng
+settings.yml의 설정이 없어서라고 함
+docker exec -it rag-searxng sh
+위치 확인
+ls /etc/searxng
+vi /etc/searxng/settings.yml
+use_default_settings: false <-- true에서 false로 바꿈
+
+server:
+secret_key: "..."
+image_proxy: true
+
+search:
+formats:
+- html
+- json
+
+engines: <-- 여기부터 추가
+- name: google
+  engine: google
+  disabled: false
+
+- name: duckduckgo
+  engine: duckduckgo
+  disabled: false
+
+바꾸고 컨테이너 나와서 리스타트
+docker restart rag-searxng
+접속이 안되어
+docker logs rag-searxng --tail=100
+아래 로그
+[INFO] Starting granian (main PID: 1) [INFO] Listening at: http://:::8080 [INFO] Spawning worker-1 with PID: 844 2026-08-03 02:06:47,457 ERROR:searx.engines: Engine config error: ambiguous shortcut: - [ERROR] Unexpected exit from worker-1 [INFO] Shutting down granian [INFO] Stopped worker-1 [INFO] Granian shutdown completed, see ya! SearXNG 2026.7.19-6da6eee26 Updating certificates in /etc/ssl/certs... 0 added, 0 removed; done. Running hooks in /etc/ca-certificates/update.d... done.
+
+docker compose stop rag-searxng
+docker volume rm searxng-data
+docker compose up -d rag-searxng
+팟맨 컴포즈로 관리되고 있어 볼륨이 삭제 안됨
+docker volume ls
+볼륨 이름이 manual-rag_searxng-data로 확인 됨
+~~docker volume rm manual-rag_searxng-data~~
+podman rm -f rag-searxng
+podman volume rm manual-rag_searxng-data
+podman-compose up -d
+podman ps
+정상적으로 컨테이너가 실행 되었지만 api는 차단 되어 있어 윗쪽의 설정 방법을 참고하여 api활성화
