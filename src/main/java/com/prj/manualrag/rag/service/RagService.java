@@ -8,16 +8,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.Objects;
 import org.springframework.ai.tool.ToolCallback;
 import com.prj.manualrag.capability.CapabilitySearchService;
 import org.springframework.ai.document.Document;
 import com.prj.manualrag.rag.dto.IntentDecision;
-import com.prj.manualrag.rag.dto.QuestionOption;
 
 
 @Slf4j
@@ -28,72 +25,57 @@ public class RagService {
     private final IntentClassifier intentClassifier;
     private final DocumentSearchTool documentSearchTool;
     private final WebSearchTool webSearchTool;
-    private final ChatMemory chatMemory;
     private final ConversationSummaryStore summaryStore;
     private final ConversationSummaryService summaryService;
     private final DocumentSelectorService documentSelectorService;
     private final ExternalToolProvider externalToolProvider;
     private final CapabilitySearchService capabilitySearchService;
 
-    public QuestionResponse answer(String question, String conversationId,
-                                   List<String> selectedRoutes) {
-//        log.info(
-//                "===============conversationId={}, question={}",
-//                conversationId,
-//                question
-//        );
-
+    public QuestionResponse answer(String question, String conversationId, List<String> selectedRoutes) {
         String summary =
                 summaryStore.get(
                         conversationId
                 );
-//        log.info("===============summary={}", summary);
+        //이전 요청까지의 대화 요약 가져오기
+        log.info("conversation summary: conversationId={}, present={}, length={}",
+                conversationId, !summary.isBlank(), summary.length());
 
+        //이전 요청까지의 대화 요약과 방금 받은 질문 합치기
         String searchQuestion =
                 rewriteQuestion(
                         question,
                         summary
                 );
 
+        //질문에 해당하는 실행할 기능 목록(벡터 스토어에 저장되어 있는 기능 가져오기)
+        // SELECT
+        //        id,
+        //        content,
+        //        metadata
+        //   FROM vector_store
+        //  WHERE metadata ->> 'capability' = 'true';
         List<Document> capabilityCandidates =
-                capabilitySearchService.search(question, 8);
+                capabilitySearchService.search(searchQuestion, 8);
         log.info("Capability candidates: question={}, candidates={}",
-                question, capabilityCandidates.stream()
+                searchQuestion, capabilityCandidates.stream()
                         .map(document -> document.getMetadata().get("capabilityName"))
                         .toList());
 
-        IntentDecision decision = intentClassifier.decide(question, capabilityCandidates);
+        //의도 가져오기
+        //WEB|DOCUMENT|MCP|GENERAL 중에 1개 이상의 routes와 route별 capabilities(1.0 이하의 소수값)
+        IntentDecision decision = intentClassifier.decide(searchQuestion, capabilityCandidates);
 
-        List<IntentDecision.RouteCandidate> routeCandidates = decision.candidates() == null
-                ? List.of()
-                : decision.candidates().stream()
-                        .filter(candidate -> candidate != null
-                                && candidate.route() != null
-                                && !candidate.route().isBlank())
-                        .collect(java.util.stream.Collectors.collectingAndThen(
-                                java.util.stream.Collectors.toMap(
-                                        candidate -> candidate.route().toUpperCase(),
-                                        candidate -> candidate,
-                                        (first, ignored) -> first,
-                                        java.util.LinkedHashMap::new),
-                                map -> new java.util.ArrayList<>(map.values())));
-
-        // LLM이 복수의 사용 가능한 경로를 반환하면 임의로 하나를 선택하지 않는다.
-        // 사용자가 선택한 경로가 있을 때만 아래 실행 단계로 진행한다.
-        if ((selectedRoutes == null || selectedRoutes.isEmpty()) && routeCandidates.size() > 1) {
-            return QuestionResponse.confirmation(
-                    "여러 방법으로 답변할 수 있습니다. 어떤 방법을 사용할까요?",
-                    routeCandidates.stream()
-                            .limit(3)
-                            .map(candidate -> new QuestionOption(
-                                    candidate.route(), routeLabel(candidate.route())))
-                            .toList()
-            );
+        // 사용자가 경로를 직접 선택했다면 그 경로를 사용하고,
+        // 그렇지 않으면 LLM이 판단한 모든 경로를 실행한다.
+        //사용자가 의도를 선택하는 경우를 없앴기 때문에 decision.routes()가 의도가 된다.
+        List<String> executionRoutes = selectedRoutes != null && !selectedRoutes.isEmpty()
+                ? selectedRoutes
+                : decision.routes();
+        if (executionRoutes == null || executionRoutes.isEmpty()) {
+            executionRoutes = List.of("GENERAL");
         }
 
-        String selectedRoute = selectedRoutes != null && !selectedRoutes.isEmpty()
-                ? selectedRoutes.get(0)
-                : decision.route();
+        String selectedRoute = executionRoutes.get(0);
         if (selectedRoute == null || selectedRoute.isBlank()) {
             selectedRoute = "GENERAL";
         }
@@ -104,10 +86,13 @@ public class RagService {
             default -> Intent.GENERAL;
         };
         String context = "";
-        boolean useDocument = selectedRoutes != null && selectedRoutes.stream()
+        //선택된 의도가 있으면 각 의도별 불린 값을 설정한다.
+        boolean useDocument = executionRoutes.stream()
                 .anyMatch(route -> "DOCUMENT".equalsIgnoreCase(route));
-        boolean useWeb = selectedRoutes != null && selectedRoutes.stream()
+        boolean useWeb = executionRoutes.stream()
                 .anyMatch(route -> "WEB".equalsIgnoreCase(route));
+        boolean useMcp = executionRoutes.stream()
+                .anyMatch(route -> "MCP".equalsIgnoreCase(route));
 
         if (useDocument || intent == Intent.DOCUMENT) {
 //            context = documentSearchTool.search(searchQuestion);
@@ -129,6 +114,12 @@ public class RagService {
                 - 자료 내용이 있으면 반드시 자료를 근거로 답한다.
                 - 자료 내용이 없으면 일반 지식으로 답할 수 있다.
                 - 자료와 일반 지식이 충돌하면 자료를 우선한다.
+                - 아래에 여러 검색 경로의 결과가 있으면 모든 결과를 종합하여 하나의 답변으로 작성한다.
+                - MCP 기능이 선택된 경우 등록된 MCP 도구를 사용하여 얻은 결과를 답변에 반영한다.
+                - 검색 결과가 서로 다르면 출처와 근거를 구분해서 설명한다.
+
+                실행 경로:
+                %s
 
                 자료 내용:
                 %s
@@ -138,7 +129,7 @@ public class RagService {
                 
                 - 한글로만 답해라
                 """
-                        .formatted(context, searchQuestion);
+                        .formatted(String.join(", ", executionRoutes), context, searchQuestion);
 
 //        List<Message> messages =
 //                chatMemory.get(
@@ -217,9 +208,7 @@ public class RagService {
 //                )
 //        );
 
-        summaryService.summarize(
-                conversationId
-        );
+        summaryService.summarize(conversationId, question, answer);
 
         return QuestionResponse.answer(answer);
 

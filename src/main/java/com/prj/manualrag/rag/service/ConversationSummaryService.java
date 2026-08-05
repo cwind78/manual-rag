@@ -18,14 +18,29 @@ public class ConversationSummaryService {
     private final ConversationSummaryStore store;
 
     public void summarize(String conversationId) {
+        summarize(conversationId, null, null);
+    }
+
+    /**
+     * The memory advisor persists the current turn after the ChatClient chain
+     * returns. Include the current turn explicitly so the summary is not one
+     * request behind.
+     */
+    public void summarize(String conversationId, String currentQuestion, String currentAnswer) {
         List<Message> messages = chatMemory.get(conversationId);
-        if(messages.size() < 8) {
+        int currentTurnMessages = currentQuestion == null || currentAnswer == null ? 0 : 2;
+        log.info("conversation memory: conversationId={}, storedMessages={}, currentTurnMessages={}",
+                conversationId, messages.size(), currentTurnMessages);
+        if(messages.size() + currentTurnMessages < 4) {
             return;
         }
 
         String text = messages.stream()
                         .map(Message::getText)
                         .reduce("", (a,b)->a+"\n"+b);
+        if (currentQuestion != null && currentAnswer != null) {
+            text += "\n사용자: " + currentQuestion + "\nAI: " + currentAnswer;
+        }
         String summary = chatClient
                         .prompt()
                         .user(

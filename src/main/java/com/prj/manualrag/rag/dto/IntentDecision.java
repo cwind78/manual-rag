@@ -1,9 +1,11 @@
 package com.prj.manualrag.rag.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.util.List;
 
 public record IntentDecision(
-        String route,
+        @JsonDeserialize(using = RouteListDeserializer.class)
+        List<String> routes,
         double confidence,
         List<RouteCandidate> candidates
 ) {
