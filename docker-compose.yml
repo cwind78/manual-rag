@@ -38,6 +38,20 @@ services:
     volumes:
       - searxng-data:/etc/searxng
 
+  rag-tor:
+    image: dperson/torproxy
+    container_name: rag-tor
+    restart: unless-stopped
+
+    networks:
+      default:
+        aliases:
+          - tor
+
+    ports:
+      - "8118:8118"
+      - "9050:9050"
+
 volumes:
   postgres-data:
   ollama-data:

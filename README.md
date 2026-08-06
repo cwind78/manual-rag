@@ -294,3 +294,18 @@ podman volume rm manual-rag_searxng-data
 podman-compose up -d
 podman ps
 정상적으로 컨테이너가 실행 되었지만 api는 차단 되어 있어 윗쪽의 설정 방법을 참고하여 api활성화
+
+torproxy 추가
+podman compose up -d rag-tor
+podman exec -it rag-searxng sh
+cd /etc/searxng
+vi settings.yml
+
+outgoing:
+proxies:
+http: socks5h://tor:9050
+https: socks5h://tor:9050
+추가하고 도커 컨테이너에서 나와서
+
+curl --socks5-hostname 127.0.0.1:9050 https://api.ipify.org
+109.70.100.6%       이런게 나온다.
