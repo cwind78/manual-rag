@@ -2,6 +2,7 @@
 
 import {ref, nextTick} from 'vue'
 import axios from 'axios'
+import {Check, Copy} from 'lucide-vue-next'
 import VoiceButton from './VoiceButton.vue'
 import FileUpload from './FileUpload.vue'
 
@@ -10,6 +11,9 @@ const input = ref('')
 const messages = ref([])
 const loading = ref(false)
 const chatArea = ref(null)
+const inputArea = ref(null)
+const copiedMessageIndex = ref(null)
+let copyTimer = null
 const conversationId = ref(
     crypto.randomUUID()
 )
@@ -21,6 +25,7 @@ async function send(selectedRoutes = []) {
   messages.value.push({ role: 'user', text: question })
   scrollToBottom()
   input.value = ''
+  nextTick(autoResizeInput)
   loading.value = true
   scrollToBottom()
 
@@ -102,35 +107,51 @@ function setVoice(text) {
 
 }
 
+function autoResizeInput() {
+  const textarea = inputArea.value
+  if (!textarea) return
+
+  textarea.style.height = 'auto'
+  const maxHeight = 240
+  textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`
+  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+}
+
+async function copyMessage(message, index) {
+  const text = message.text || ''
+  if (!text) return
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      textarea.remove()
+    }
+
+    copiedMessageIndex.value = index
+    clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => {
+      copiedMessageIndex.value = null
+    }, 2000)
+  } catch (error) {
+    console.error('메시지 복사 실패', error)
+  }
+}
+
 </script>
 
 
 <template>
 
   <div class="relative w-screen h-screen overflow-hidden bg-white">
-
-
-    <!-- 상단 제목 -->
-    <header
-        class="
-        absolute
-        top-0
-        left-0
-        right-0
-        z-10
-        flex
-        items-center
-        px-6
-        py-5
-        font-semibold
-        text-lg
-        pointer-events-none
-        "
-    >
-
-      <span>Manual AI</span>
-
-    </header>
 
 
     <!-- 대화 영역 -->
@@ -166,17 +187,17 @@ function setVoice(text) {
         >
 
 
-          <!-- 사용자 표시 -->
+          <!-- 질문 표시 -->
           <div
               v-if="message.role==='user'"
               class="
-                    text-right
+                    text-left
                     text-xs
                     text-gray-500
                     mb-1
                     "
           >
-            사용자
+            나
           </div>
 
           <div v-if="message.options?.length" class="mt-3 flex flex-wrap gap-2">
@@ -193,7 +214,7 @@ function setVoice(text) {
 
           <!-- AI 표시 -->
           <div
-              v-else
+              v-if="message.role !== 'user'"
               class="
                     text-left
                     text-xs
@@ -201,7 +222,7 @@ function setVoice(text) {
                     mb-1
                     "
           >
-            Manual AI
+            시스템
           </div>
 
 
@@ -225,6 +246,23 @@ function setVoice(text) {
 
             {{ message.text }}
 
+          </div>
+
+          <!-- 질문·답변 복사 버튼 -->
+          <div
+              class="mt-1 flex"
+              :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+          >
+            <button
+                type="button"
+                class="copy-message-button"
+                :aria-label="copiedMessageIndex === index ? '복사 완료' : '메시지 복사'"
+                :title="copiedMessageIndex === index ? '복사 완료' : '복사'"
+                @click="copyMessage(message, index)"
+            >
+              <Check v-if="copiedMessageIndex === index" :size="15" stroke-width="2.5" />
+              <Copy v-else :size="15" stroke-width="2" />
+            </button>
           </div>
 
 
@@ -281,7 +319,7 @@ function setVoice(text) {
             mx-auto
             pointer-events-auto
             flex
-            items-center
+            items-end
             gap-3
             bg-white
             border border-gray-200
@@ -295,16 +333,21 @@ function setVoice(text) {
         <FileUpload/>
 
 
-        <input
+        <textarea
+            ref="inputArea"
             v-model="input"
-            @keyup.enter="send"
+            @keydown.enter.exact.prevent="send"
+            @input="autoResizeInput"
             placeholder="입력하세요"
+            rows="1"
             class="
                 flex-1
                 outline-none
                 py-3
+                resize-none
+                input-textarea
                 "
-        />
+        ></textarea>
 
 
         <VoiceButton
@@ -317,11 +360,10 @@ function setVoice(text) {
         <button
             @click="send"
             class="
+                soft-action-button
                 w-10
                 h-10
                 rounded-full
-                bg-black
-                text-white
                 "
         >
 

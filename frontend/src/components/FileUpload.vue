@@ -174,12 +174,11 @@ async function upload() {
   <!-- 업로드 버튼 -->
   <button
       class="
+        soft-action-button
         cursor-pointer
         w-10
         h-10
         rounded-full
-        bg-black
-        text-white
         flex
         items-center
         justify-center

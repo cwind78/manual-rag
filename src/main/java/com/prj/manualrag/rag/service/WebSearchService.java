@@ -69,7 +69,7 @@ public class WebSearchService {
     private List<SearchItem> fetchSearchResults(String query) throws Exception {
         URI uri = UriComponentsBuilder.fromHttpUrl(properties.getUrl())
                     .queryParam("q", query).queryParam("language", "ko")
-                    .queryParam("engines", "google").queryParam("categories", "general")
+                    .queryParam("categories", "general")
                     .queryParam("format", "html").build().encode(StandardCharsets.UTF_8).toUri();
         String html = webClient.get().uri(uri).header(HttpHeaders.USER_AGENT, "Mozilla/5.0")
                 .header(HttpHeaders.ACCEPT_LANGUAGE, "ko-KR,ko;q=0.9,en;q=0.8")

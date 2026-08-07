@@ -40,12 +40,14 @@ public class RagService {
         log.info("conversation summary: conversationId={}, present={}, length={}",
                 conversationId, !summary.isBlank(), summary.length());
 
-        //이전 요청까지의 대화 요약과 방금 받은 질문 합치기
+        // 현재 질문을 항상 기준으로 삼고, 현재 질문이 불완전한 후속 질문일 때만
+        // 이전 요약으로 검색어를 보완한다.
         String searchQuestion =
                 rewriteQuestion(
                         question,
                         summary
                 );
+        log.info("Current question={}, search question={}", question, searchQuestion);
 
         //질문에 해당하는 실행할 기능 목록(벡터 스토어에 저장되어 있는 기능 가져오기)
         // SELECT
@@ -64,13 +66,12 @@ public class RagService {
         //의도 가져오기
         //WEB|DOCUMENT|MCP|GENERAL 중에 1개 이상의 routes와 route별 capabilities(1.0 이하의 소수값)
         IntentDecision decision = intentClassifier.decide(searchQuestion, capabilityCandidates);
-
-        // 사용자가 경로를 직접 선택했다면 그 경로를 사용하고,
-        // 그렇지 않으면 LLM이 판단한 모든 경로를 실행한다.
-        //사용자가 의도를 선택하는 경우를 없앴기 때문에 decision.routes()가 의도가 된다.
+        //selectedRoutes는 사용자와 상호작용하기 위해 받았던 것으로 현재는 사용자가 의도를 선택하지 않기 때문에 항상 null이다. 즉 decision.routes()가 유사도가 가장 높은 의도가 된다.
         List<String> executionRoutes = selectedRoutes != null && !selectedRoutes.isEmpty()
                 ? selectedRoutes
                 : decision.routes();
+
+        //아래도 탈일이 없다. llm이 decision.routes()를 null로 리턴하지 않으면
         if (executionRoutes == null || executionRoutes.isEmpty()) {
             executionRoutes = List.of("GENERAL");
         }
@@ -124,42 +125,18 @@ public class RagService {
                 자료 내용:
                 %s
 
-                질문:
+                현재 사용자 질문(이 질문에 최우선으로 답변):
                 %s
-                
+
+                검색에 사용한 보강 질문(현재 질문이 생략형일 때만 참고):
+                %s
+
                 - 한글로만 답해라
                 """
-                        .formatted(String.join(", ", executionRoutes), context, searchQuestion);
-
-//        List<Message> messages =
-//                chatMemory.get(
-//                        conversationId
-//                );
-
-//        log.info("===============memory size={}", messages.size());
-//        messages.forEach(message ->
-//                log.info(
-//                        "===============memory role={}, content={}",
-//                        message.getMessageType(),
-//                        message.getText()
-//                )
-//        );
+                        .formatted(String.join(", ", executionRoutes), context, question, searchQuestion);
 
         List<ToolCallback> mcpTools =
                 externalToolProvider.activeTools();
-
-//        String answer = chatClient
-//                        .prompt()
-//                        .user(prompt)
-//                        .toolCallbacks(mcpTools)
-//                        .advisors(
-//                                advisor -> advisor.param(
-//                                        ChatMemory.CONVERSATION_ID,
-//                                        conversationId
-//                                )
-//                        )
-//                        .call()
-//                        .content();
 
         ChatResponse response = chatClient
                 .prompt()
@@ -196,50 +173,9 @@ public class RagService {
                 .getOutput()
                 .getText(); //여기까지 테스트
 
-        // 여기서 Memory 확인
-//        messages = chatMemory.get(conversationId);
-
-//        log.info("===== MEMORY AFTER CALL =====");
-//        messages.forEach(message ->
-//                log.info(
-//                        "===============role={}, content={}",
-//                        message.getMessageType(),
-//                        message.getText()
-//                )
-//        );
-
         summaryService.summarize(conversationId, question, answer);
 
         return QuestionResponse.answer(answer);
-
-//        String answer =
-//                chatClient
-//                        .prompt()
-//                        .system("""
-//                                당신은 문서 검색 기능을 사용할 수 있는 AI Assistant이다.
-//
-//                                                    규칙
-//
-//                                                    1. 사용자가 업로드한 문서에 대한 질문이면 반드시 Tool을 사용한다.
-//
-//                                                    2. Tool이 반환한 내용을 근거로 최종 답변을 작성한다.
-//
-//                                                    3. "검색하겠습니다.", "찾아보겠습니다." 같은 중간 과정을 사용자에게 말하지 않는다.
-//
-//                                                    4. Tool의 반환 내용을 그대로 인용하지 말고 자연스럽게 답변한다.
-//
-//                                                    5. Tool에서 충분한 정보를 찾지 못하거나 문서에 대한 질문이 아니면 추론하여 답한다.
-//                                                    단 Tool을 사용했지만 충분한 정보를 찾지 못한경우 "업로드된 문서에서 확인할 수 없습니다."
-//                                                    라고 답한 다음에 추론하여 답한다.
-//
-//                                                    6. 한글로만 답한다.
-//""")
-//                        .tools(documentSearchTool)
-//                        .user(question)
-//                        .call()
-//                        .content();
-//
-//        return new QuestionResponse(answer);
     }
 
     private String routeLabel(String route) {
@@ -262,28 +198,49 @@ public class RagService {
         }
 
 
-        return chatClient
-                .prompt()
-                .user(
-                        """
-                        이전 대화 내용을 참고해서
-                        검색하기 좋은 질문으로 변경하세요.
-            
-                        이전 대화:
-                        %s
-            
-                        현재 질문:
-                        %s
-            
-                        검색 질문만 출력하세요.
-                        """
-                                .formatted(
-                                        summary,
-                                        question
-                                )
-                )
-                .call()
-                .content();
+        try {
+            String rewritten = chatClient
+                    .prompt()
+                    .user(
+                            """
+                            현재 질문을 중심으로 웹 검색용 질문으로 준비한다.
+
+                            반드시 지킬 규칙:
+                            1. 현재 질문이 독립적으로 이해되는 새 주제이면 현재 질문을 그대로 출력한다..
+                            2. 이전 대화 요약은 현재 질문이 '몇 시에?', '그 제품은?', '얼마인가요?'처럼
+                               맥락을 이어가는 경우에 사용한다.
+                            3. 현재 질문과 이전 요약의 주제가 다르면 이전 요약을 절대 섞지 않는다.
+                            4. 이전 요약이 현재 질문을 덮어쓰거나 답변 주제를 바꾸게 해서는 않된다.
+                            5. 검색 질문 한 줄만 출력하고 설명, 번호, 따옴표는 출력하지 않는다.
+
+                            예시 1:
+                            이전 요약: 사용자는 냉장고 가격을 물었다.
+                            현재 질문: 자동차 가격을 알아봐 줘.
+                            출력: 자동차 가격을 알아봐 줘.
+
+                            예시 2:
+                            이전 요약: 오늘 서울 날씨를 확인했다.
+                            현재 질문: 몇 시에?
+                            출력: 오늘 서울에 비가 오는 시간은 몇 시인가?
+
+                            이전 대화 요약:
+                            %s
+
+                            현재 질문:
+                            %s
+                            """
+                                    .formatted(summary, question)
+                    )
+                    .call()
+                    .content();
+            String result = rewritten == null ? "" : rewritten.split("\\R")[0]
+                    .replaceFirst("^\\s*[-*0-9.)]+\\s*", "")
+                    .trim();
+            return result.isBlank() ? question : result;
+        } catch (Exception e) {
+            log.warn("질문 재작성 실패. 현재 질문을 그대로 사용합니다.", e);
+            return question;
+        }
 
     }
 }

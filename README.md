@@ -295,6 +295,26 @@ podman-compose up -d
 podman ps
 정상적으로 컨테이너가 실행 되었지만 api는 차단 되어 있어 윗쪽의 설정 방법을 참고하여 api활성화
 
+searxng 컨테이너 지우고 다시 생성하는 범
+podman rm -f rag-searxng
+podman-compose config --service
+podman-compose up -d searxng
+podman ps -a
+//podman logs -f rag-searxng
+searxng 설정 파일만 수정 하기 위해 설정 파일이 보이는지 확인
+podman run --rm \
+-v manual-rag_searxng-data:/data \
+alpine \
+ls -la /data
+새로운 키 생성
+openssl rand -hex 32
+63093bc306e3086df38aa034c5326a4d6aac990752c2a3de2ac7e9199dbde203
+podman run --rm -it \
+-v manual-rag_searxng-data:/data \
+alpine \
+vi /data/settings.yml
+
+
 torproxy 추가
 podman compose up -d rag-tor
 podman exec -it rag-searxng sh
@@ -309,3 +329,5 @@ https: socks5h://tor:9050
 
 curl --socks5-hostname 127.0.0.1:9050 https://api.ipify.org
 109.70.100.6%       이런게 나온다.
+
+차단 되서 프록시로 접근하기 위해 tor설치 했는데 되려 tor에 블랙리스트에 있는지 차단되서 프록시 설정 지웠더니 검색 함
