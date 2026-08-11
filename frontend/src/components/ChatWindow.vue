@@ -10,6 +10,7 @@ import FileUpload from './FileUpload.vue'
 const input = ref('')
 const messages = ref([])
 const loading = ref(false)
+const isComposing = ref(false)
 const chatArea = ref(null)
 const inputArea = ref(null)
 const copiedMessageIndex = ref(null)
@@ -19,7 +20,7 @@ const conversationId = ref(
 )
 
 async function send(selectedRoutes = []) {
-  if (!input.value.trim()) return
+  if (loading.value || !input.value.trim()) return
 
   const question = input.value
   messages.value.push({ role: 'user', text: question })
@@ -115,6 +116,22 @@ function autoResizeInput() {
   const maxHeight = 240
   textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`
   textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+}
+
+function handleCompositionStart() {
+  isComposing.value = true
+}
+
+function handleCompositionEnd() {
+  isComposing.value = false
+  nextTick(autoResizeInput)
+}
+
+function handleInputEnter(event) {
+  // 한글 IME 조합 중 Enter는 전송이 아니라 현재 글자 조합 완료에 사용한다.
+  if (isComposing.value || event.isComposing || event.keyCode === 229) return
+  event.preventDefault()
+  send()
 }
 
 async function copyMessage(message, index) {
@@ -336,7 +353,9 @@ async function copyMessage(message, index) {
         <textarea
             ref="inputArea"
             v-model="input"
-            @keydown.enter.exact.prevent="send"
+            @keydown.enter.exact="handleInputEnter"
+            @compositionstart="handleCompositionStart"
+            @compositionend="handleCompositionEnd"
             @input="autoResizeInput"
             placeholder="입력하세요"
             rows="1"
@@ -358,6 +377,8 @@ async function copyMessage(message, index) {
 
 
         <button
+            type="button"
+            :disabled="loading"
             @click="send"
             class="
                 soft-action-button
